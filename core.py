@@ -24,25 +24,28 @@ from typing import Dict, Iterable, List, Optional, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 
+# Import constants from config
+import config
+
 
 @dataclass(frozen=True)
 class MarketConfig:
-    """Market configuration with normalized parameters.
+    """Market configuration with parameters from config.py.
     
-    Default configuration:
-        - Price range: [0, 1] (normalized)
-        - Production cost: 0 for both firms (normalized)
-        - Price step: 0.1 (11 price levels)
+    Default configuration uses values from config.py:
+        - Price range: [PRICE_MIN, PRICE_MAX]
+        - Production cost: MARGINAL_COST
+        - Price levels: NUM_PRICE_LEVELS
     """
-    demand_intercept: float = 100.0
-    demand_slope: float = 1.0
-    firm_a_cost: float = 0.0  # Normalized to 0
-    firm_b_cost: float = 0.0  # Normalized to 0
-    price_min: float = 0.0    # Normalized to 0
-    price_max: float = 1.0    # Normalized to 1
-    price_step: float = 0.1   # 11 price levels
+    demand_intercept: float = config.DEMAND_INTERCEPT
+    demand_slope: float = config.DEMAND_SLOPE
+    firm_a_cost: float = config.MARGINAL_COST
+    firm_b_cost: float = config.MARGINAL_COST
+    price_min: float = config.PRICE_MIN
+    price_max: float = config.PRICE_MAX
+    price_step: float = config.PRICE_STEP
     episode_length: int = 50
-    reward_scale: float = 0.01
+    reward_scale: float = config.REWARD_SCALE
 
 
 class BertrandMultiAgentEnvironment:
@@ -152,11 +155,11 @@ class MATLABQLearningAgent:
         self,
         name: str,
         actions: Iterable[float],
-        learning_rate: float = 0.15,
+        learning_rate: float = config.LEARNING_RATE,
         discount_factor: float = 0.95,
-        epsilon_start: float = 1.0,
-        epsilon_min: float = 0.001,
-        step_beta: float = 4e-6,
+        epsilon_start: float = config.EPSILON_START,
+        epsilon_min: float = config.EPSILON_MIN,
+        step_beta: float = config.STEP_BETA,
         optimistic_init: bool = True,
         environment: Optional['BertrandMultiAgentEnvironment'] = None,
         firm_id: str = "A",

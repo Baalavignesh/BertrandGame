@@ -17,6 +17,9 @@ import pandas as pd
 import streamlit as st
 import numpy as np
 
+# Import configuration constants
+import config
+
 # Import simulation modules
 from batch_simulator import run_single_simulation
 
@@ -220,10 +223,10 @@ def main():
         
         st.subheader("Discount Factors (γ)")
         
-        # Fixed set of discount factors: {0, 0.05, 0.1, ..., 0.95}
-        discount_factors_list = [round(i * 0.05, 2) for i in range(20)]  # 0.00 to 0.95
+        # Use discount factors from config
+        discount_factors_list = config.DISCOUNT_FACTORS
         
-        st.caption(f"Fixed: {len(discount_factors_list)} values from 0.00 to 0.95")
+        st.caption(f"Fixed: {len(discount_factors_list)} values")
         st.code(", ".join([f"{g:.2f}" for g in discount_factors_list]), language=None)
         
         st.divider()
@@ -234,14 +237,14 @@ def main():
             "Simulations per γ",
             min_value=1,
             max_value=100,
-            value=10,
+            value=config.DEFAULT_N_SIMULATIONS,
             help="Number of independent runs for each discount factor"
         )
         
         max_steps = st.select_slider(
             "Max steps per simulation",
             options=[100_000, 500_000, 1_000_000, 5_000_000, 10_000_000],
-            value=1_000_000,
+            value=config.DEFAULT_MAX_STEPS,
             format_func=lambda x: f"{x:,}"
         )
         
@@ -249,7 +252,7 @@ def main():
             "Price convergence threshold",
             min_value=10,
             max_value=10000,
-            value=100,
+            value=config.DEFAULT_PRICE_CONVERGENCE_COUNT,
             help="Consecutive steps with same price to trigger convergence"
         )
         
@@ -257,7 +260,7 @@ def main():
             "Learning rate (α)",
             min_value=0.01,
             max_value=1.0,
-            value=0.15,
+            value=config.LEARNING_RATE,
             step=0.01,
             format="%.2f",
             help="Q-learning update rate"

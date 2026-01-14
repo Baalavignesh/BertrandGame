@@ -37,6 +37,9 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+# Import configuration constants
+import config
+
 # Import from core module - no duplicate code!
 from core import (
     MarketConfig,
@@ -123,9 +126,9 @@ def run_single_market(
         actions=environment.get_available_actions("A"),
         learning_rate=learning_rate,
         discount_factor=discount_factor,
-        epsilon_start=1.0,
-        epsilon_min=0.001,
-        step_beta=4e-6,
+        epsilon_start=config.EPSILON_START,
+        epsilon_min=config.EPSILON_MIN,
+        step_beta=config.STEP_BETA,
         optimistic_init=True,
         environment=environment,
         firm_id="A",
@@ -136,9 +139,9 @@ def run_single_market(
         actions=environment.get_available_actions("B"),
         learning_rate=learning_rate,
         discount_factor=discount_factor,
-        epsilon_start=1.0,
-        epsilon_min=0.001,
-        step_beta=4e-6,
+        epsilon_start=config.EPSILON_START,
+        epsilon_min=config.EPSILON_MIN,
+        step_beta=config.STEP_BETA,
         optimistic_init=True,
         environment=environment,
         firm_id="B",
@@ -204,10 +207,9 @@ def run_single_simulation(
 
     # Calculate discount factors for each market
     # Market 1: uses the input discount_factor directly (δ)
-    # Market 2: uses γ × δ where γ = 0.7 (always less than Market 1)
-    GAMMA_MULTIPLIER = 0.7
+    # Market 2: uses γ × δ where γ = GAMMA_MULTIPLIER (always less than Market 1)
     discount_factor_m1 = discount_factor
-    discount_factor_m2 = GAMMA_MULTIPLIER * discount_factor
+    discount_factor_m2 = config.GAMMA_MULTIPLIER * discount_factor
 
     # Run Market 1
     if verbose:
