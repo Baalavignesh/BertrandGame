@@ -219,38 +219,12 @@ def main():
         st.header("⚙️ Simulation Parameters")
         
         st.subheader("Discount Factors (γ)")
-        st.caption("Exactly 3 discount factors required")
         
-        # Three individual sliders for discount factors
-        gamma_1 = st.slider(
-            "γ₁ (Discount Factor 1)",
-            min_value=0.0,
-            max_value=1.0,
-            value=0.05,
-            step=0.05,
-            format="%.2f"
-        )
+        # Fixed set of discount factors: {0, 0.05, 0.1, ..., 0.95}
+        discount_factors_list = [round(i * 0.05, 2) for i in range(20)]  # 0.00 to 0.95
         
-        gamma_2 = st.slider(
-            "γ₂ (Discount Factor 2)",
-            min_value=0.0,
-            max_value=1.0,
-            value=0.50,
-            step=0.05,
-            format="%.2f"
-        )
-        
-        gamma_3 = st.slider(
-            "γ₃ (Discount Factor 3)",
-            min_value=0.0,
-            max_value=1.0,
-            value=1.00,
-            step=0.05,
-            format="%.2f"
-        )
-        
-        # Combine into list
-        discount_factors_list = [gamma_1, gamma_2, gamma_3]
+        st.caption(f"Fixed: {len(discount_factors_list)} values from 0.00 to 0.95")
+        st.code(", ".join([f"{g:.2f}" for g in discount_factors_list]), language=None)
         
         st.divider()
         
@@ -303,7 +277,7 @@ def main():
         
         if run_button:
             try:
-                # Use the 3 discount factors from sliders
+                # Use the fixed discount factors
                 gammas = discount_factors_list
                 
                 st.session_state.is_running = True
