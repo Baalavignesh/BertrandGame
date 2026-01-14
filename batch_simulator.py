@@ -97,29 +97,32 @@ def log(message: str = "") -> None:
 
 
 def run_single_market(
-    config: MarketConfig,
+    market_config: MarketConfig,
     discount_factor: float,
     max_steps: int,
     price_convergence_count: int,
     market_id: int,
-    learning_rate: float = 0.15,
+    learning_rate: float = config.LEARNING_RATE,
+    step_beta: float = config.STEP_BETA,
     verbose: bool = False,
 ) -> Dict:
     """
     Run a single market simulation.
 
     Args:
-        config: Market configuration
+        market_config: Market configuration
         discount_factor: The discount factor (gamma) for Q-learning
         max_steps: Maximum training steps
         price_convergence_count: Consecutive steps for price convergence
         market_id: Market identifier (1 or 2)
+        learning_rate: Q-learning update rate
+        step_beta: Exploration decay parameter
         verbose: Print progress during training
 
     Returns:
         Dict with market results
     """
-    environment = BertrandMultiAgentEnvironment(config)
+    environment = BertrandMultiAgentEnvironment(market_config)
 
     agent_a = MATLABQLearningAgent(
         name=f"Market{market_id}_FirmA",
@@ -128,7 +131,7 @@ def run_single_market(
         discount_factor=discount_factor,
         epsilon_start=config.EPSILON_START,
         epsilon_min=config.EPSILON_MIN,
-        step_beta=config.STEP_BETA,
+        step_beta=step_beta,
         optimistic_init=True,
         environment=environment,
         firm_id="A",
@@ -141,7 +144,7 @@ def run_single_market(
         discount_factor=discount_factor,
         epsilon_start=config.EPSILON_START,
         epsilon_min=config.EPSILON_MIN,
-        step_beta=config.STEP_BETA,
+        step_beta=step_beta,
         optimistic_init=True,
         environment=environment,
         firm_id="B",
@@ -170,9 +173,15 @@ def run_single_market(
 
 def run_single_simulation(
     discount_factor: float,
-    max_steps: int = 10_000_000,
-    price_convergence_count: int = 1000,
-    learning_rate: float = 0.15,
+    max_steps: int = config.DEFAULT_MAX_STEPS,
+    price_convergence_count: int = config.DEFAULT_PRICE_CONVERGENCE_COUNT,
+    learning_rate: float = config.LEARNING_RATE,
+    step_beta: float = config.STEP_BETA,
+    num_price_levels: int = config.NUM_PRICE_LEVELS,
+    price_min: float = config.PRICE_MIN,
+    price_max: float = config.PRICE_MAX,
+    marginal_cost: float = config.MARGINAL_COST,
+    gamma_multiplier: float = config.GAMMA_MULTIPLIER,
     seed: Optional[int] = None,
     verbose: bool = False,
 ) -> Dict:
@@ -181,19 +190,21 @@ def run_single_simulation(
 
     Args:
         discount_factor: The discount factor (delta) for Market 1
-                        Market 2 uses: 0.7 × delta (always less than Market 1)
+                        Market 2 uses: gamma_multiplier × delta
         max_steps: Maximum training steps
         price_convergence_count: Consecutive steps for price convergence
+        learning_rate: Q-learning update rate (alpha)
+        step_beta: Exploration decay parameter (beta)
+        num_price_levels: Number of price levels (k)
+        price_min: Minimum price
+        price_max: Maximum price
+        marginal_cost: Production cost for firms
+        gamma_multiplier: Multiplier for Market 2's discount factor
         seed: Random seed for reproducibility
         verbose: Print progress during training
 
     Returns:
-        Dict with keys for both markets:
-            - discount_factor_a: float (Market 1's gamma = δ)
-            - discount_factor_b: float (Market 2's gamma = 0.7 × δ)
-            - Market 1: converged_m1, convergence_step_m1, converged_price_1a, converged_price_1b, etc.
-            - Market 2: converged_m2, convergence_step_m2, converged_price_2a, converged_price_2b, etc.
-            - time_to_converge: float (seconds)
+        Dict with keys for both markets
     """
     if seed is not None:
         random.seed(seed)
@@ -202,14 +213,24 @@ def run_single_simulation(
     # Start timer
     start_time = time.time()
 
+    # Calculate price step from num_price_levels
+    price_step = (price_max - price_min) / (num_price_levels - 1) if num_price_levels > 1 else 0.1
+
     # Create shared configuration for both markets
-    config = MarketConfig(episode_length=max_steps)
+    market_config = MarketConfig(
+        episode_length=max_steps,
+        firm_a_cost=marginal_cost,
+        firm_b_cost=marginal_cost,
+        price_min=price_min,
+        price_max=price_max,
+        price_step=price_step,
+    )
 
     # Calculate discount factors for each market
     # Market 1: uses the input discount_factor directly (δ)
-    # Market 2: uses γ × δ where γ = GAMMA_MULTIPLIER (always less than Market 1)
+    # Market 2: uses gamma_multiplier × δ (always less than Market 1)
     discount_factor_m1 = discount_factor
-    discount_factor_m2 = config.GAMMA_MULTIPLIER * discount_factor
+    discount_factor_m2 = gamma_multiplier * discount_factor
 
     # Run Market 1
     if verbose:
@@ -217,12 +238,13 @@ def run_single_simulation(
         log(f"MARKET 1 (γ = {discount_factor_m1:.4f})")
         log(f"{'='*40}")
     market1 = run_single_market(
-        config=config,
+        market_config=market_config,
         discount_factor=discount_factor_m1,
         max_steps=max_steps,
         price_convergence_count=price_convergence_count,
         market_id=1,
         learning_rate=learning_rate,
+        step_beta=step_beta,
         verbose=verbose,
     )
 
@@ -232,12 +254,13 @@ def run_single_simulation(
         log(f"MARKET 2 (γ = {discount_factor_m2:.4f})")
         log(f"{'='*40}")
     market2 = run_single_market(
-        config=config,
+        market_config=market_config,
         discount_factor=discount_factor_m2,
         max_steps=max_steps,
         price_convergence_count=price_convergence_count,
         market_id=2,
         learning_rate=learning_rate,
+        step_beta=step_beta,
         verbose=verbose,
     )
 

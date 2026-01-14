@@ -77,6 +77,12 @@ def run_simulation_with_capture(
     max_steps: int,
     price_convergence_count: int,
     learning_rate: float,
+    step_beta: float,
+    num_price_levels: int,
+    price_min: float,
+    price_max: float,
+    marginal_cost: float,
+    gamma_multiplier: float,
     progress_bar,
     status_text,
 ) -> tuple[pd.DataFrame, str]:
@@ -107,7 +113,12 @@ Simulations per factor: {n_simulations}
 Total simulations: {total_sims:,}
 Max steps per sim: {max_steps:,}
 Price convergence threshold: {price_convergence_count}
-Learning rate: {learning_rate}
+Learning rate (α): {learning_rate}
+Step beta (β): {step_beta}
+Price levels (k): {num_price_levels}
+Price range: [{price_min}, {price_max}]
+Marginal cost: {marginal_cost}
+Gamma multiplier: {gamma_multiplier}
 Output file: {output_file}
 {'='*70}
 """
@@ -137,6 +148,12 @@ Output file: {output_file}
                 max_steps=max_steps,
                 price_convergence_count=price_convergence_count,
                 learning_rate=learning_rate,
+                step_beta=step_beta,
+                num_price_levels=num_price_levels,
+                price_min=price_min,
+                price_max=price_max,
+                marginal_cost=marginal_cost,
+                gamma_multiplier=gamma_multiplier,
                 seed=seed,
                 verbose=False,
             )
@@ -265,6 +282,67 @@ def main():
             format="%.2f",
             help="Q-learning update rate"
         )
+        
+        step_beta = st.number_input(
+            "Exploration beta (β)",
+            min_value=1e-6,
+            max_value=1e-2,
+            value=config.STEP_BETA,
+            format="%.1e",
+            help="Exploration decay: ε = exp(-β × t)"
+        )
+        
+        gamma_multiplier = st.slider(
+            "Market 2 γ multiplier",
+            min_value=0.1,
+            max_value=1.0,
+            value=config.GAMMA_MULTIPLIER,
+            step=0.1,
+            format="%.1f",
+            help="Market 2 discount factor = multiplier × Market 1 γ"
+        )
+        
+        st.divider()
+        
+        st.subheader("Market Settings")
+        
+        num_price_levels = st.number_input(
+            "Price levels (k)",
+            min_value=2,
+            max_value=20,
+            value=config.NUM_PRICE_LEVELS,
+            help="Number of discrete price levels"
+        )
+        
+        col_price1, col_price2 = st.columns(2)
+        with col_price1:
+            price_min = st.number_input(
+                "Min price",
+                min_value=0.0,
+                max_value=1.0,
+                value=config.PRICE_MIN,
+                step=0.05,
+                format="%.2f"
+            )
+        with col_price2:
+            price_max = st.number_input(
+                "Max price",
+                min_value=0.0,
+                max_value=2.0,
+                value=config.PRICE_MAX,
+                step=0.05,
+                format="%.2f"
+            )
+        
+        marginal_cost = st.number_input(
+            "Marginal cost",
+            min_value=0.0,
+            max_value=1.0,
+            value=config.MARGINAL_COST,
+            step=0.01,
+            format="%.2f",
+            help="Production cost for both firms"
+        )
     
     # Main content area
     col1, col2 = st.columns([2, 1])
@@ -297,6 +375,12 @@ def main():
                         max_steps=max_steps,
                         price_convergence_count=price_convergence_count,
                         learning_rate=learning_rate,
+                        step_beta=step_beta,
+                        num_price_levels=num_price_levels,
+                        price_min=price_min,
+                        price_max=price_max,
+                        marginal_cost=marginal_cost,
+                        gamma_multiplier=gamma_multiplier,
                         progress_bar=progress_bar,
                         status_text=status_text,
                     )
