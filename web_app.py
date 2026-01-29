@@ -163,12 +163,10 @@ Output file: {output_file}
             all_results.append(result)
             
             # Log result summary
-            log_buffer.write(f"  Market 1: Converged={result['converged_m1']}, "
-                           f"Price A={result['converged_price_1a']:.2f}, "
-                           f"Price B={result['converged_price_1b']:.2f}\n")
-            log_buffer.write(f"  Market 2: Converged={result['converged_m2']}, "
-                           f"Price A={result['converged_price_2a']:.2f}, "
-                           f"Price B={result['converged_price_2b']:.2f}\n")
+            log_buffer.write(f"  Converged: {result['converged']} ({result['convergence_reason']})\n")
+            log_buffer.write(f"  Unified Price: {result['converged_price']:.4f}\n")
+            log_buffer.write(f"  Market 1: A={result['price_1a']:.2f}, B={result['price_1b']:.2f}\n")
+            log_buffer.write(f"  Market 2: A={result['price_2a']:.2f}, B={result['price_2b']:.2f}\n")
             log_buffer.write(f"  Time: {result['time_to_converge']:.2f}s\n")
     
     # Create DataFrame
@@ -191,30 +189,29 @@ Average time per sim: {total_time/total_sims:.2f}s
 Results saved to: {output_file}
 {'='*70}
 
-SUMMARY STATISTICS - MARKET 1
+SUMMARY STATISTICS - UNIFIED CONVERGENCE
 {'='*70}
 """
     log_buffer.write(summary)
     
-    # Market 1 summary
-    summary_m1 = df_results.groupby('discount_factor_a').agg({
-        'converged_m1': ['sum', 'mean'],
-        'convergence_step_m1': ['mean', 'std'],
-        'converged_price_1a': ['mean', 'std'],
-        'converged_price_1b': ['mean', 'std'],
+    # Unified convergence summary
+    summary_unified = df_results.groupby('discount_factor_a').agg({
+        'converged': ['sum', 'mean'],
+        'convergence_step': ['mean', 'std'],
+        'converged_price': ['mean', 'std'],
     }).round(4)
-    log_buffer.write(summary_m1.to_string())
+    log_buffer.write(summary_unified.to_string())
     
-    log_buffer.write(f"\n\nSUMMARY STATISTICS - MARKET 2\n{'='*70}\n")
+    log_buffer.write(f"\n\nINDIVIDUAL MARKET PRICES\n{'='*70}\n")
     
-    # Market 2 summary
-    summary_m2 = df_results.groupby('discount_factor_a').agg({
-        'converged_m2': ['sum', 'mean'],
-        'convergence_step_m2': ['mean', 'std'],
-        'converged_price_2a': ['mean', 'std'],
-        'converged_price_2b': ['mean', 'std'],
+    # Individual market prices
+    summary_prices = df_results.groupby('discount_factor_a').agg({
+        'price_1a': ['mean', 'std'],
+        'price_1b': ['mean', 'std'],
+        'price_2a': ['mean', 'std'],
+        'price_2b': ['mean', 'std'],
     }).round(4)
-    log_buffer.write(summary_m2.to_string())
+    log_buffer.write(summary_prices.to_string())
     
     # Get log content
     log_content = log_buffer.getvalue()
@@ -438,9 +435,9 @@ def main():
         with metric_cols[0]:
             st.metric("Total Simulations", len(df))
         with metric_cols[1]:
-            st.metric("Market 1 Convergence", f"{df['converged_m1'].mean()*100:.1f}%")
+            st.metric("Convergence Rate", f"{df['converged'].mean()*100:.1f}%")
         with metric_cols[2]:
-            st.metric("Market 2 Convergence", f"{df['converged_m2'].mean()*100:.1f}%")
+            st.metric("Avg Unified Price", f"{df['converged_price'].mean():.4f}")
         with metric_cols[3]:
             st.metric("Avg Time/Sim", f"{df['time_to_converge'].mean():.1f}s")
         
@@ -459,10 +456,10 @@ def main():
             chart_col1, chart_col2 = st.columns(2)
             
             with chart_col1:
-                st.subheader("Market 1: Converged Prices by γ")
+                st.subheader("Market 1: Prices by γ")
                 chart_data_m1 = df.groupby('discount_factor_a').agg({
-                    'converged_price_1a': 'mean',
-                    'converged_price_1b': 'mean',
+                    'price_1a': 'mean',
+                    'price_1b': 'mean',
                 }).reset_index()
                 st.line_chart(
                     chart_data_m1.set_index('discount_factor_a'),
@@ -470,49 +467,59 @@ def main():
                 )
             
             with chart_col2:
-                st.subheader("Market 2: Converged Prices by γ")
+                st.subheader("Market 2: Prices by γ")
                 chart_data_m2 = df.groupby('discount_factor_a').agg({
-                    'converged_price_2a': 'mean',
-                    'converged_price_2b': 'mean',
+                    'price_2a': 'mean',
+                    'price_2b': 'mean',
                 }).reset_index()
                 st.line_chart(
                     chart_data_m2.set_index('discount_factor_a'),
                     use_container_width=True,
                 )
             
-            # Convergence steps chart
-            st.subheader("Convergence Steps by Discount Factor")
+            # Unified price and convergence steps
+            st.subheader("Unified Price & Convergence Steps by γ")
             conv_data = df.groupby('discount_factor_a').agg({
-                'convergence_step_m1': 'mean',
-                'convergence_step_m2': 'mean',
+                'converged_price': 'mean',
+                'convergence_step': 'mean',
             }).reset_index()
-            st.bar_chart(
-                conv_data.set_index('discount_factor_a'),
-                use_container_width=True,
-            )
+            
+            col_chart1, col_chart2 = st.columns(2)
+            with col_chart1:
+                st.line_chart(
+                    conv_data.set_index('discount_factor_a')[['converged_price']],
+                    use_container_width=True,
+                )
+            with col_chart2:
+                st.bar_chart(
+                    conv_data.set_index('discount_factor_a')[['convergence_step']],
+                    use_container_width=True,
+                )
         
         with tab3:
-            st.subheader("Market 1 Statistics")
-            summary_m1 = df.groupby('discount_factor_a').agg({
-                'converged_m1': ['sum', 'mean'],
-                'convergence_step_m1': ['mean', 'std'],
-                'converged_price_1a': ['mean', 'std'],
-                'converged_price_1b': ['mean', 'std'],
-                'converged_q_value_1a': ['mean', 'std'],
-                'converged_q_value_1b': ['mean', 'std'],
+            st.subheader("Unified Convergence Statistics")
+            summary_unified = df.groupby('discount_factor_a').agg({
+                'converged': ['sum', 'mean'],
+                'convergence_step': ['mean', 'std'],
+                'converged_price': ['mean', 'std'],
             }).round(4)
-            st.dataframe(summary_m1, use_container_width=True)
+            st.dataframe(summary_unified, use_container_width=True)
             
-            st.subheader("Market 2 Statistics")
-            summary_m2 = df.groupby('discount_factor_a').agg({
-                'converged_m2': ['sum', 'mean'],
-                'convergence_step_m2': ['mean', 'std'],
-                'converged_price_2a': ['mean', 'std'],
-                'converged_price_2b': ['mean', 'std'],
-                'converged_q_value_2a': ['mean', 'std'],
-                'converged_q_value_2b': ['mean', 'std'],
+            st.subheader("Individual Market Prices")
+            summary_prices = df.groupby('discount_factor_a').agg({
+                'price_1a': ['mean', 'std'],
+                'price_1b': ['mean', 'std'],
+                'price_2a': ['mean', 'std'],
+                'price_2b': ['mean', 'std'],
             }).round(4)
-            st.dataframe(summary_m2, use_container_width=True)
+            st.dataframe(summary_prices, use_container_width=True)
+            
+            st.subheader("Shared Q-Value Statistics")
+            summary_q = df.groupby('discount_factor_a').agg({
+                'converged_q_value_a': ['mean', 'std'],
+                'converged_q_value_b': ['mean', 'std'],
+            }).round(4)
+            st.dataframe(summary_q, use_container_width=True)
         
         with tab4:
             st.text_area(

@@ -2,3 +2,6 @@ working
 old
 undercut.ipynb
 __pycache__
+visualize_results.py
+plots/
+readme.md
