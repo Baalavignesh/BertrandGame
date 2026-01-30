@@ -265,7 +265,7 @@ def main():
         price_convergence_count = st.number_input(
             "Price convergence threshold",
             min_value=10,
-            max_value=10000,
+            max_value=1000000,
             value=config.DEFAULT_PRICE_CONVERGENCE_COUNT,
             help="Consecutive steps with same price to trigger convergence"
         )
@@ -282,7 +282,7 @@ def main():
         
         step_beta = st.number_input(
             "Exploration beta (β)",
-            min_value=1e-6,
+            min_value=1e-10,
             max_value=1e-2,
             value=config.STEP_BETA,
             format="%.1e",
