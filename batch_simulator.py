@@ -267,7 +267,6 @@ def run_single_simulation(
             agent_b=agent_b,
             converged_price_a=stable_prices_m1[0],
             converged_price_b=stable_prices_m1[1],
-            undercut_amount=0.1,
             steps_after_undercut=15,
         )
         sim_results["m1_undercut_price_b"] = undercut_m1["undercut_price_b"]
@@ -300,7 +299,6 @@ def run_single_simulation(
             agent_b=agent_b,
             converged_price_a=stable_prices_m2[0],
             converged_price_b=stable_prices_m2[1],
-            undercut_amount=0.1,
             steps_after_undercut=15,
         )
         sim_results["m2_undercut_price_b"] = undercut_m2["undercut_price_b"]

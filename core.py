@@ -485,14 +485,15 @@ def run_undercut_experiment(
     agent_b: MATLABQLearningAgent,
     converged_price_a: float,
     converged_price_b: float,
-    undercut_amount: float = 0.1,
     steps_after_undercut: int = 15,
 ) -> Dict:
     """
     Run undercut experiment where Firm B undercuts Firm A.
 
-    After convergence, Firm B deviates by setting a price below Firm A's converged price.
-    Then both firms use greedy policies for the next steps.
+    After convergence, Firm B deviates by setting a price one level below
+    Firm A's converged price.  The undercut is skipped when:
+      - Firm B is already strictly below Firm A (no deviation needed)
+      - Firm B is at the minimum valid price (no room to undercut)
 
     Args:
         environment: The Bertrand competition environment
@@ -500,7 +501,6 @@ def run_undercut_experiment(
         agent_b: Trained Q-learning agent for Firm B
         converged_price_a: Firm A's price at convergence
         converged_price_b: Firm B's price at convergence
-        undercut_amount: How much Firm B undercuts (default 0.1 = one price step)
         steps_after_undercut: Number of steps to track after undercut (default 15)
 
     Returns:
@@ -549,14 +549,22 @@ def run_undercut_experiment(
     environment.last_price_a = converged_price_a
     environment.last_price_b = converged_price_b
 
-    # Calculate undercut price: Firm B undercuts Firm A's converged price
-    target_undercut_price = converged_price_a - undercut_amount
-
-    # Find closest valid price to target
-    undercut_price_b = min(valid_prices, key=lambda x: abs(x - target_undercut_price))
-
-    # Ensure undercut price is at least at cost (minimum valid price)
-    undercut_price_b = max(undercut_price_b, min_valid_b)
+    # Calculate undercut price: next valid price strictly below Firm A's
+    # converged price.  Using a fixed offset (e.g. 0.1) can fail when the
+    # price step is larger than 2× the offset, causing the snap to land
+    # back on the same price.  Instead we directly pick the highest valid
+    # price that is strictly less than converged_price_a.
+    prices_below_a = [p for p in valid_prices if p < converged_price_a - 1e-9]
+    if not prices_below_a:
+        # No valid price below A — cannot undercut (shouldn't happen given
+        # the guard conditions, but handle defensively)
+        return {
+            "undercut_price_b": np.nan,
+            "trajectory": [],
+            "undercut_performed": False,
+            "skip_reason": "no_valid_price_below_a",
+        }
+    undercut_price_b = max(prices_below_a)
 
     trajectory: List[Tuple[float, float]] = []
 
