@@ -271,13 +271,23 @@ def run_single_simulation(
             steps_after_undercut=15,
         )
         sim_results["m1_undercut_price_b"] = undercut_m1["undercut_price_b"]
-        # Add trajectory columns: m1_uc_pa_1, m1_uc_pb_1, ..., m1_uc_pa_15, m1_uc_pb_15
-        for i, (pa, pb) in enumerate(undercut_m1["trajectory"], start=1):
-            sim_results[f"m1_uc_pa_{i}"] = pa
-            sim_results[f"m1_uc_pb_{i}"] = pb
+        sim_results["m1_undercut_performed"] = undercut_m1["undercut_performed"]
+        sim_results["m1_undercut_skip_reason"] = undercut_m1["skip_reason"]
+        if undercut_m1["undercut_performed"]:
+            # Add trajectory columns: m1_uc_pa_1, m1_uc_pb_1, ..., m1_uc_pa_15, m1_uc_pb_15
+            for i, (pa, pb) in enumerate(undercut_m1["trajectory"], start=1):
+                sim_results[f"m1_uc_pa_{i}"] = pa
+                sim_results[f"m1_uc_pb_{i}"] = pb
+        else:
+            # Undercut skipped - fill trajectory with NaN
+            for i in range(1, 16):
+                sim_results[f"m1_uc_pa_{i}"] = np.nan
+                sim_results[f"m1_uc_pb_{i}"] = np.nan
     else:
         # No convergence - fill with NaN
         sim_results["m1_undercut_price_b"] = np.nan
+        sim_results["m1_undercut_performed"] = False
+        sim_results["m1_undercut_skip_reason"] = "no_convergence"
         for i in range(1, 16):
             sim_results[f"m1_uc_pa_{i}"] = np.nan
             sim_results[f"m1_uc_pb_{i}"] = np.nan
@@ -294,13 +304,23 @@ def run_single_simulation(
             steps_after_undercut=15,
         )
         sim_results["m2_undercut_price_b"] = undercut_m2["undercut_price_b"]
-        # Add trajectory columns: m2_uc_pa_1, m2_uc_pb_1, ..., m2_uc_pa_15, m2_uc_pb_15
-        for i, (pa, pb) in enumerate(undercut_m2["trajectory"], start=1):
-            sim_results[f"m2_uc_pa_{i}"] = pa
-            sim_results[f"m2_uc_pb_{i}"] = pb
+        sim_results["m2_undercut_performed"] = undercut_m2["undercut_performed"]
+        sim_results["m2_undercut_skip_reason"] = undercut_m2["skip_reason"]
+        if undercut_m2["undercut_performed"]:
+            # Add trajectory columns: m2_uc_pa_1, m2_uc_pb_1, ..., m2_uc_pa_15, m2_uc_pb_15
+            for i, (pa, pb) in enumerate(undercut_m2["trajectory"], start=1):
+                sim_results[f"m2_uc_pa_{i}"] = pa
+                sim_results[f"m2_uc_pb_{i}"] = pb
+        else:
+            # Undercut skipped - fill trajectory with NaN
+            for i in range(1, 16):
+                sim_results[f"m2_uc_pa_{i}"] = np.nan
+                sim_results[f"m2_uc_pb_{i}"] = np.nan
     else:
         # No convergence - fill with NaN
         sim_results["m2_undercut_price_b"] = np.nan
+        sim_results["m2_undercut_performed"] = False
+        sim_results["m2_undercut_skip_reason"] = "no_convergence"
         for i in range(1, 16):
             sim_results[f"m2_uc_pa_{i}"] = np.nan
             sim_results[f"m2_uc_pb_{i}"] = np.nan
@@ -323,6 +343,15 @@ def run_single_simulation(
         log(f"\nShared Q-values (from Market 1 converged state):")
         log(f"  Agent A: {sim_results['converged_q_value_a']:.4f}")
         log(f"  Agent B: {sim_results['converged_q_value_b']:.4f}")
+        log(f"\nUndercut Experiments:")
+        if sim_results["m1_undercut_performed"]:
+            log(f"  Market 1: Performed (undercut price = {sim_results['m1_undercut_price_b']:.2f})")
+        else:
+            log(f"  Market 1: Skipped ({sim_results['m1_undercut_skip_reason']})")
+        if sim_results["m2_undercut_performed"]:
+            log(f"  Market 2: Performed (undercut price = {sim_results['m2_undercut_price_b']:.2f})")
+        else:
+            log(f"  Market 2: Skipped ({sim_results['m2_undercut_skip_reason']})")
         log(f"\nTotal time: {time_to_converge:.2f}s")
 
     return sim_results

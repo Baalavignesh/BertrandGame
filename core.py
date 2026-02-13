@@ -505,9 +505,45 @@ def run_undercut_experiment(
 
     Returns:
         Dict with:
-            - undercut_price_b: The price Firm B used to undercut
+            - undercut_price_b: The price Firm B used to undercut (NaN if skipped)
             - trajectory: List of (price_a, price_b) tuples for each step
+            - undercut_performed: Whether the undercut was actually executed
+            - skip_reason: Why the undercut was skipped (empty string if performed)
     """
+    valid_prices = environment.actions_b
+    if not valid_prices:
+        return {
+            "undercut_price_b": np.nan,
+            "trajectory": [],
+            "undercut_performed": False,
+            "skip_reason": "no_valid_prices",
+        }
+
+    min_valid_b = min(valid_prices)
+
+    # Guard condition 1: Only undercut if B is NOT strictly below A.
+    # If B is already cheaper than A, B is already "winning" — no deviation needed.
+    if converged_price_b < converged_price_a:
+        return {
+            "undercut_price_b": np.nan,
+            "trajectory": [],
+            "undercut_performed": False,
+            "skip_reason": "b_already_below_a",
+        }
+
+    # Guard condition 2: Only undercut if B is at least one price level above
+    # the minimum valid price.  If B is already at the cost floor there is no
+    # valid lower price to deviate to.
+    if converged_price_b <= min_valid_b:
+        return {
+            "undercut_price_b": np.nan,
+            "trajectory": [],
+            "undercut_performed": False,
+            "skip_reason": "b_at_min_price",
+        }
+
+    # --- Undercut is feasible: proceed ---
+
     # Reset environment to converged state
     environment.reset()
     environment.last_price_a = converged_price_a
@@ -516,17 +552,11 @@ def run_undercut_experiment(
     # Calculate undercut price: Firm B undercuts Firm A's converged price
     target_undercut_price = converged_price_a - undercut_amount
 
-    # Snap to valid price level (closest valid price >= cost)
-    valid_prices = environment.actions_b
-    if not valid_prices:
-        return {"undercut_price_b": np.nan, "trajectory": []}
-
     # Find closest valid price to target
     undercut_price_b = min(valid_prices, key=lambda x: abs(x - target_undercut_price))
 
     # Ensure undercut price is at least at cost (minimum valid price)
-    min_valid = min(valid_prices)
-    undercut_price_b = max(undercut_price_b, min_valid)
+    undercut_price_b = max(undercut_price_b, min_valid_b)
 
     trajectory: List[Tuple[float, float]] = []
 
@@ -556,4 +586,6 @@ def run_undercut_experiment(
     return {
         "undercut_price_b": undercut_price_b,
         "trajectory": trajectory,
+        "undercut_performed": True,
+        "skip_reason": "",
     }

@@ -167,6 +167,15 @@ Output file: {output_file}
             log_buffer.write(f"  Unified Price: {result['converged_price']:.4f}\n")
             log_buffer.write(f"  Market 1: A={result['price_1a']:.2f}, B={result['price_1b']:.2f}\n")
             log_buffer.write(f"  Market 2: A={result['price_2a']:.2f}, B={result['price_2b']:.2f}\n")
+            # Undercut experiment status
+            if result.get('m1_undercut_performed', False):
+                log_buffer.write(f"  Market 1 Undercut: Performed (B undercuts to {result['m1_undercut_price_b']:.2f})\n")
+            else:
+                log_buffer.write(f"  Market 1 Undercut: Skipped ({result.get('m1_undercut_skip_reason', 'N/A')})\n")
+            if result.get('m2_undercut_performed', False):
+                log_buffer.write(f"  Market 2 Undercut: Performed (B undercuts to {result['m2_undercut_price_b']:.2f})\n")
+            else:
+                log_buffer.write(f"  Market 2 Undercut: Skipped ({result.get('m2_undercut_skip_reason', 'N/A')})\n")
             log_buffer.write(f"  Time: {result['time_to_converge']:.2f}s\n")
     
     # Create DataFrame
@@ -431,7 +440,7 @@ def main():
         # Summary metrics
         st.subheader("📈 Summary Metrics")
         
-        metric_cols = st.columns(4)
+        metric_cols = st.columns(5)
         with metric_cols[0]:
             st.metric("Total Simulations", len(df))
         with metric_cols[1]:
@@ -440,6 +449,13 @@ def main():
             st.metric("Avg Unified Price", f"{df['converged_price'].mean():.4f}")
         with metric_cols[3]:
             st.metric("Avg Time/Sim", f"{df['time_to_converge'].mean():.1f}s")
+        with metric_cols[4]:
+            if 'm1_undercut_performed' in df.columns:
+                m1_rate = df['m1_undercut_performed'].mean() * 100
+                m2_rate = df['m2_undercut_performed'].mean() * 100
+                st.metric("Undercut Rate", f"M1: {m1_rate:.0f}% / M2: {m2_rate:.0f}%")
+            else:
+                st.metric("Undercut Rate", "N/A")
         
         # Tabs for different views
         tab1, tab2, tab3, tab4 = st.tabs(["📊 Results Table", "📈 Charts", "📋 Summary Stats", "📝 Full Log"])
@@ -520,6 +536,38 @@ def main():
                 'converged_q_value_b': ['mean', 'std'],
             }).round(4)
             st.dataframe(summary_q, use_container_width=True)
+
+            if 'm1_undercut_performed' in df.columns:
+                st.subheader("Undercut Experiment Statistics")
+                undercut_stats = df.groupby('discount_factor_a').agg({
+                    'm1_undercut_performed': ['sum', 'mean'],
+                    'm1_undercut_price_b': 'mean',
+                    'm2_undercut_performed': ['sum', 'mean'],
+                    'm2_undercut_price_b': 'mean',
+                }).round(4)
+                undercut_stats.columns = [
+                    'M1 Undercuts', 'M1 Undercut Rate',
+                    'M1 Avg Undercut Price',
+                    'M2 Undercuts', 'M2 Undercut Rate',
+                    'M2 Avg Undercut Price',
+                ]
+                st.dataframe(undercut_stats, use_container_width=True)
+
+                # Skip reason breakdown
+                st.caption("Undercut Skip Reasons")
+                skip_col1, skip_col2 = st.columns(2)
+                with skip_col1:
+                    st.markdown("**Market 1**")
+                    m1_reasons = df['m1_undercut_skip_reason'].value_counts()
+                    for reason, count in m1_reasons.items():
+                        label = reason if reason else "performed"
+                        st.text(f"  {label}: {count}")
+                with skip_col2:
+                    st.markdown("**Market 2**")
+                    m2_reasons = df['m2_undercut_skip_reason'].value_counts()
+                    for reason, count in m2_reasons.items():
+                        label = reason if reason else "performed"
+                        st.text(f"  {label}: {count}")
         
         with tab4:
             st.text_area(
