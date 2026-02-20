@@ -4,4 +4,5 @@ undercut.ipynb
 __pycache__
 visualize_results.py
 plots/
-readme.md
+CLAUDE.md
+simulation_results_test.csv

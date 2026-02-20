@@ -357,8 +357,15 @@ def run_single_simulation(
 def run_batch_simulations(
     discount_factors: List[float],
     n_simulations: int,
-    max_steps: int = 10_000_000,
-    price_convergence_count: int = 1000,
+    max_steps: int = config.DEFAULT_MAX_STEPS,
+    price_convergence_count: int = config.DEFAULT_PRICE_CONVERGENCE_COUNT,
+    learning_rate: float = config.LEARNING_RATE,
+    step_beta: float = config.STEP_BETA,
+    num_price_levels: int = config.NUM_PRICE_LEVELS,
+    price_min: float = config.PRICE_MIN,
+    price_max: float = config.PRICE_MAX,
+    marginal_cost: float = config.MARGINAL_COST,
+    gamma_multiplier: float = config.GAMMA_MULTIPLIER,
     output_file: str = "simulation_results.csv",
     verbose: bool = True,
 ) -> pd.DataFrame:
@@ -370,6 +377,13 @@ def run_batch_simulations(
         n_simulations: Number of simulations per discount factor
         max_steps: Maximum steps per simulation
         price_convergence_count: Consecutive steps for price convergence
+        learning_rate: Q-learning update rate (alpha)
+        step_beta: Exploration decay parameter (beta)
+        num_price_levels: Number of discrete price levels
+        price_min: Minimum price
+        price_max: Maximum price
+        marginal_cost: Production cost for firms
+        gamma_multiplier: Multiplier for Market 2's discount factor
         output_file: Path to save results CSV
         verbose: Print progress
 
@@ -388,6 +402,12 @@ def run_batch_simulations(
         log(f"Total simulations: {total_sims:,}")
         log(f"Max steps per sim: {max_steps:,}")
         log(f"Price convergence threshold: {price_convergence_count}")
+        log(f"Learning rate (α): {learning_rate}")
+        log(f"Step beta (β): {step_beta}")
+        log(f"Price levels (k): {num_price_levels}")
+        log(f"Price range: [{price_min}, {price_max}]")
+        log(f"Marginal cost: {marginal_cost}")
+        log(f"Gamma multiplier: {gamma_multiplier}")
         log(f"Output file: {output_file}")
         log("="*70)
 
@@ -411,12 +431,20 @@ def run_batch_simulations(
                 discount_factor=gamma,
                 max_steps=max_steps,
                 price_convergence_count=price_convergence_count,
+                learning_rate=learning_rate,
+                step_beta=step_beta,
+                num_price_levels=num_price_levels,
+                price_min=price_min,
+                price_max=price_max,
+                marginal_cost=marginal_cost,
+                gamma_multiplier=gamma_multiplier,
                 seed=seed,
                 verbose=verbose,
             )
 
             result["simulation_id"] = sim_count
             result["gamma_index"] = sim_idx
+            result["seed"] = seed
             all_results.append(result)
 
             # Save intermediate results every 10 simulations
@@ -513,8 +541,8 @@ def main():
     args = parser.parse_args()
 
     # Fixed parameters
-    max_steps = 1_000_000  # Maximum steps if convergence not reached
-    price_convergence_count = 100  # Converge when prices stable for 100 consecutive steps
+    max_steps = config.DEFAULT_MAX_STEPS
+    price_convergence_count = config.DEFAULT_PRICE_CONVERGENCE_COUNT
 
     # Configure based on mode
     # Note: Discount factors start at 0.05 (not 0) so Market 2 has meaningful values

@@ -11,10 +11,10 @@ Configuration Constants for Bertrand Q-Learning Simulation
 MARGINAL_COST = 0.1          # Production cost for both firms
 PRICE_MIN = 0.0              # Minimum price
 PRICE_MAX = 0.65             # Maximum price
-NUM_PRICE_LEVELS = 6         # k = 6 price levels
+NUM_PRICE_LEVELS = 4         # k = 4 price levels
 
 # Calculate price step to get exactly k levels from min to max
-# Levels: {0, 0.13, 0.26, 0.39, 0.52, 0.65} for k=6
+# Levels: {0, 0.22, 0.43, 0.65} for k=4
 PRICE_STEP = (PRICE_MAX - PRICE_MIN) / (NUM_PRICE_LEVELS - 1)
 
 # Demand function parameters
@@ -38,7 +38,7 @@ GAMMA_MULTIPLIER = 0.7
 # Epsilon-greedy exploration parameters
 EPSILON_START = 1.0
 EPSILON_MIN = 0.001
-STEP_BETA = 2e-4             # β for epsilon decay: ε = exp(-β × t)
+STEP_BETA = 2e-5             # β for epsilon decay: ε = exp(-β × t)
 
 
 # =============================================================================
@@ -54,5 +54,5 @@ DISCOUNT_FACTORS = [round(i * 0.05, 2) for i in range(20)]
 # =============================================================================
 
 DEFAULT_MAX_STEPS = 1_000_000
-DEFAULT_PRICE_CONVERGENCE_COUNT = 100
+DEFAULT_PRICE_CONVERGENCE_COUNT = 1000
 DEFAULT_N_SIMULATIONS = 10
