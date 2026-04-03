@@ -6,3 +6,7 @@ visualize_results.py
 plots/
 CLAUDE.md
 simulation_results_test.csv
+CONVERGENCE_ISSUES.md
+DUAL_MARKET_ARCHITECTURE.md
+MATLAB/
+ARCHITECTURE_CHANGES.md

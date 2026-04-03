@@ -85,7 +85,7 @@ def run_simulation_with_capture(
     gamma_multiplier: float,
     progress_bar,
     status_text,
-) -> tuple[pd.DataFrame, str]:
+) -> tuple[pd.DataFrame, str, str, str]:
     """
     Run batch simulations while capturing output for display.
     

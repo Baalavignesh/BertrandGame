@@ -161,37 +161,37 @@ def run_single_simulation(
     discount_factor_m1 = discount_factor
     discount_factor_m2 = gamma_multiplier * discount_factor
 
-    # Create environments for both markets
+    # Create environments for both markets (used for price grid and profit computation)
     env1 = BertrandMultiAgentEnvironment(market_config)
     env2 = BertrandMultiAgentEnvironment(market_config)
 
-    # Create 2 shared agents (used in both markets)
+    # Create 2 agents with 4-tuple state and 2-tuple action
     # Use average discount factor for optimistic initialization
     avg_discount_factor = (discount_factor_m1 + discount_factor_m2) / 2
-    
+
     agent_a = MATLABQLearningAgent(
         name="FirmA",
-        actions=env1.get_available_actions("A"),
+        valid_prices=env1.get_available_actions("A"),
         learning_rate=learning_rate,
-        discount_factor=avg_discount_factor,  # Used for optimistic init only
+        discount_factor=avg_discount_factor,
         epsilon_start=config.EPSILON_START,
         epsilon_min=config.EPSILON_MIN,
         step_beta=step_beta,
         optimistic_init=True,
-        environment=env1,
-        firm_id="A",
+        env1=env1,
+        env2=env2,
     )
     agent_b = MATLABQLearningAgent(
         name="FirmB",
-        actions=env1.get_available_actions("B"),
+        valid_prices=env1.get_available_actions("B"),
         learning_rate=learning_rate,
-        discount_factor=avg_discount_factor,  # Used for optimistic init only
+        discount_factor=avg_discount_factor,
         epsilon_start=config.EPSILON_START,
         epsilon_min=config.EPSILON_MIN,
         step_beta=step_beta,
         optimistic_init=True,
-        environment=env1,
-        firm_id="B",
+        env1=env1,
+        env2=env2,
     )
 
     if verbose:
@@ -248,80 +248,53 @@ def run_single_simulation(
         "price_2b": stable_prices_m2[1] if stable_prices_m2 else env2.last_price_b,
     }
 
-    # Get Q-values from shared agents (only 2 Q-values now)
-    if stable_prices_m1:
-        converged_state_a = stable_prices_m1
-        converged_state_b = (stable_prices_m1[1], stable_prices_m1[0])
-        sim_results["converged_q_value_a"] = agent_a.get_q_value(converged_state_a, stable_prices_m1[0])
-        sim_results["converged_q_value_b"] = agent_b.get_q_value(converged_state_b, stable_prices_m1[1])
+    # Get Q-values at converged state for the converged action pairs
+    stable_state = results.get('stable_state')
+    if stable_state:
+        converged_action_a = (stable_state[0], stable_state[1])  # (pA_m1, pA_m2)
+        converged_action_b = (stable_state[2], stable_state[3])  # (pB_m1, pB_m2)
+        sim_results["converged_q_value_a"] = agent_a.get_q_value(stable_state, converged_action_a)
+        sim_results["converged_q_value_b"] = agent_b.get_q_value(stable_state, converged_action_b)
     else:
         sim_results["converged_q_value_a"] = np.nan
         sim_results["converged_q_value_b"] = np.nan
 
-    # Run undercut experiments for both markets (using shared agents)
-    # Market 1 undercut experiment
-    if stable_prices_m1:
-        undercut_m1 = run_undercut_experiment(
-            environment=env1,
-            agent_a=agent_a,
-            agent_b=agent_b,
-            converged_price_a=stable_prices_m1[0],
-            converged_price_b=stable_prices_m1[1],
-            steps_after_undercut=15,
-        )
-        sim_results["m1_undercut_price_b"] = undercut_m1["undercut_price_b"]
-        sim_results["m1_undercut_performed"] = undercut_m1["undercut_performed"]
-        sim_results["m1_undercut_skip_reason"] = undercut_m1["skip_reason"]
-        if undercut_m1["undercut_performed"]:
-            # Add trajectory columns: m1_uc_pa_1, m1_uc_pb_1, ..., m1_uc_pa_15, m1_uc_pb_15
-            for i, (pa, pb) in enumerate(undercut_m1["trajectory"], start=1):
-                sim_results[f"m1_uc_pa_{i}"] = pa
-                sim_results[f"m1_uc_pb_{i}"] = pb
-        else:
-            # Undercut skipped - fill trajectory with NaN
-            for i in range(1, 16):
-                sim_results[f"m1_uc_pa_{i}"] = np.nan
-                sim_results[f"m1_uc_pb_{i}"] = np.nan
-    else:
-        # No convergence - fill with NaN
-        sim_results["m1_undercut_price_b"] = np.nan
-        sim_results["m1_undercut_performed"] = False
-        sim_results["m1_undercut_skip_reason"] = "no_convergence"
-        for i in range(1, 16):
-            sim_results[f"m1_uc_pa_{i}"] = np.nan
-            sim_results[f"m1_uc_pb_{i}"] = np.nan
+    # Run undercut experiments per market
+    def _run_undercut_for_market(mkt):
+        if stable_state:
+            return run_undercut_experiment(
+                agent_a=agent_a,
+                agent_b=agent_b,
+                env1=env1,
+                env2=env2,
+                converged_state=stable_state,
+                market=mkt,
+                steps_after_undercut=15,
+            )
+        return None
 
-    # Market 2 undercut experiment
-    if stable_prices_m2:
-        undercut_m2 = run_undercut_experiment(
-            environment=env2,
-            agent_a=agent_a,
-            agent_b=agent_b,
-            converged_price_a=stable_prices_m2[0],
-            converged_price_b=stable_prices_m2[1],
-            steps_after_undercut=15,
-        )
-        sim_results["m2_undercut_price_b"] = undercut_m2["undercut_price_b"]
-        sim_results["m2_undercut_performed"] = undercut_m2["undercut_performed"]
-        sim_results["m2_undercut_skip_reason"] = undercut_m2["skip_reason"]
-        if undercut_m2["undercut_performed"]:
-            # Add trajectory columns: m2_uc_pa_1, m2_uc_pb_1, ..., m2_uc_pa_15, m2_uc_pb_15
-            for i, (pa, pb) in enumerate(undercut_m2["trajectory"], start=1):
-                sim_results[f"m2_uc_pa_{i}"] = pa
-                sim_results[f"m2_uc_pb_{i}"] = pb
+    for mkt in [1, 2]:
+        prefix = f"m{mkt}"
+        uc_result = _run_undercut_for_market(mkt)
+        if uc_result is not None:
+            sim_results[f"{prefix}_undercut_price_b"] = uc_result["undercut_price_b"]
+            sim_results[f"{prefix}_undercut_performed"] = uc_result["undercut_performed"]
+            sim_results[f"{prefix}_undercut_skip_reason"] = uc_result["skip_reason"]
+            if uc_result["undercut_performed"]:
+                for i, (pa, pb) in enumerate(uc_result["trajectory"], start=1):
+                    sim_results[f"{prefix}_uc_pa_{i}"] = pa
+                    sim_results[f"{prefix}_uc_pb_{i}"] = pb
+            else:
+                for i in range(1, 16):
+                    sim_results[f"{prefix}_uc_pa_{i}"] = np.nan
+                    sim_results[f"{prefix}_uc_pb_{i}"] = np.nan
         else:
-            # Undercut skipped - fill trajectory with NaN
+            sim_results[f"{prefix}_undercut_price_b"] = np.nan
+            sim_results[f"{prefix}_undercut_performed"] = False
+            sim_results[f"{prefix}_undercut_skip_reason"] = "no_convergence"
             for i in range(1, 16):
-                sim_results[f"m2_uc_pa_{i}"] = np.nan
-                sim_results[f"m2_uc_pb_{i}"] = np.nan
-    else:
-        # No convergence - fill with NaN
-        sim_results["m2_undercut_price_b"] = np.nan
-        sim_results["m2_undercut_performed"] = False
-        sim_results["m2_undercut_skip_reason"] = "no_convergence"
-        for i in range(1, 16):
-            sim_results[f"m2_uc_pa_{i}"] = np.nan
-            sim_results[f"m2_uc_pb_{i}"] = np.nan
+                sim_results[f"{prefix}_uc_pa_{i}"] = np.nan
+                sim_results[f"{prefix}_uc_pb_{i}"] = np.nan
 
     if verbose:
         log(f"\n{'='*70}")
@@ -552,8 +525,8 @@ def main():
         n_simulations = 10
         output_file = "simulation_results_test.csv"
     else:  # full
-        # Full scale: 100,000 simulations for discount factors [0.05, 0.10, ..., 0.95, 1.0]
-        discount_factors = [round(i * 0.05, 2) for i in range(1, 21)]  # [0.05, 0.10, ..., 1.0]
+        # Full scale: 100,000 simulations using the canonical discount factor set from config
+        discount_factors = config.DISCOUNT_FACTORS
         n_simulations = 100_000
         output_file = "simulation_results_full.csv"
 

@@ -45,8 +45,9 @@ STEP_BETA = 2e-5             # β for epsilon decay: ε = exp(-β × t)
 # DISCOUNT FACTORS
 # =============================================================================
 
-# Fixed set of discount factors to test: {0, 0.05, 0.1, ..., 0.95}
-DISCOUNT_FACTORS = [round(i * 0.05, 2) for i in range(20)]
+# Fixed set of discount factors to test: {0.05, 0.10, ..., 0.95}
+# Starts at 0.05 (not 0) so Market 2's γ₂ = multiplier × δ remains meaningful.
+DISCOUNT_FACTORS = [round(i * 0.05, 2) for i in range(1, 20)]
 
 
 # =============================================================================
