@@ -1,21 +1,9 @@
 """
-Core Q-Learning Module for Multi-Agent Bertrand Competition (Dual Market)
+Core Q-learning module for two-agent, dual-market Bertrand competition.
 
-Architecture (from diagram):
-- State: (pA_m1, pA_m2, pB_m1, pB_m2) — all 4 prices from both markets
-- Action: (price_m1, price_m2) — each firm picks prices for both markets simultaneously
-- Reward: Combined profit across both markets (π_m1 + π_m2)
-- 2 agents (Firm A, Firm B), each with 1 Q-table
-- Next state = actions taken (s' = a)
-
-Classes:
-    - MarketConfig: Configuration for the market environment
-    - BertrandMultiAgentEnvironment: Two-firm Bertrand competition (per-market profit computation)
-    - MATLABQLearningAgent: Q-learning agent with 4-tuple state and 2-tuple action
-
-Functions:
-    - train_dual_market_interleaved: Train dual-market system with combined rewards
-    - run_undercut_experiment: Test post-convergence deviation behavior per market
+State:  (pA_m1, pA_m2, pB_m1, pB_m2) — last-period prices in both markets.
+Action: (price_m1, price_m2) — each firm picks prices for both markets simultaneously.
+Reward: Combined profit π_m1 + π_m2; next state = actions taken (s' = a).
 """
 
 import math
@@ -28,8 +16,7 @@ import numpy as np
 
 import config
 
-# Type aliases for clarity
-State = Tuple[float, float, float, float]   # (pA_m1, pA_m2, pB_m1, pB_m2)
+State = Tuple[float, float, float, float]    # (pA_m1, pA_m2, pB_m1, pB_m2)
 ActionPair = Tuple[float, float]             # (price_m1, price_m2)
 
 
@@ -271,13 +258,11 @@ def train_dual_market_interleaved(
     5. Next state = actions taken (s' = a)
     6. Convergence tracked independently per market
     """
-    # Costs and scale for profit computation
     cost_a = env1.config.firm_a_cost
     cost_b = env1.config.firm_b_cost
     scale = env1.config.reward_scale
     avg_discount = (discount_factor_m1 + discount_factor_m2) / 2.0
 
-    # Initial state: all firms at minimum valid price in both markets
     min_price_a = min(env1.actions_a)
     min_price_b = min(env1.actions_b)
     state: State = (min_price_a, min_price_a, min_price_b, min_price_b)
@@ -310,60 +295,49 @@ def train_dual_market_interleaved(
     stable_state: Optional[State] = None
 
     for step in range(max_steps):
-        # Both agents see the same global state
-        action_a: ActionPair = agent_a.select_action(state)  # (pA_m1, pA_m2)
-        action_b: ActionPair = agent_b.select_action(state)  # (pB_m1, pB_m2)
+        action_a: ActionPair = agent_a.select_action(state)
+        action_b: ActionPair = agent_b.select_action(state)
 
-        # Compute per-market profits
-        # Market 1: A plays action_a[0], B plays action_b[0]
         pi1_a = env1._profit(action_a[0], action_b[0], cost_a) * scale
         pi1_b = env1._profit(action_b[0], action_a[0], cost_b) * scale
-
-        # Market 2: A plays action_a[1], B plays action_b[1]
         pi2_a = env2._profit(action_a[1], action_b[1], cost_a) * scale
         pi2_b = env2._profit(action_b[1], action_a[1], cost_b) * scale
 
-        # Combined rewards (from diagram: π_A = π¹_A + π²_A)
         reward_a = pi1_a + pi2_a
         reward_b = pi1_b + pi2_b
 
-        # Next state = actions taken (MATLAB: s1 = a)
+        # Next state = actions taken (s' = a)
         next_state: State = (action_a[0], action_a[1], action_b[0], action_b[1])
 
-        # Q-updates with average discount factor
         agent_a.update(state, action_a, reward_a, next_state, False, avg_discount)
         agent_b.update(state, action_b, reward_b, next_state, False, avg_discount)
 
-        # Track per-market prices
         current_prices_m1 = (action_a[0], action_b[0])
         current_prices_m2 = (action_a[1], action_b[1])
 
-        # Update environment tracking (for external inspection)
+        # Update environment tracking for external inspection
         env1.last_price_a = action_a[0]
         env1.last_price_b = action_b[0]
         env2.last_price_a = action_a[1]
         env2.last_price_b = action_b[1]
 
-        # Unified price
         market1_avg = (action_a[0] + action_b[0]) / 2.0
         market2_avg = (action_a[1] + action_b[1]) / 2.0
         unified_price = (market1_avg + market2_avg) / 2.0
 
-        # Market 1 stability
+        # Market stability tracking
         if current_prices_m1 == last_prices_m1:
             m1_stable_count += 1
         else:
             m1_stable_count = 1
             last_prices_m1 = current_prices_m1
 
-        # Market 2 stability
         if current_prices_m2 == last_prices_m2:
             m2_stable_count += 1
         else:
             m2_stable_count = 1
             last_prices_m2 = current_prices_m2
 
-        # Converge when BOTH markets are independently stable
         if (
             m1_stable_count >= price_convergence_count
             and m2_stable_count >= price_convergence_count
@@ -387,12 +361,10 @@ def train_dual_market_interleaved(
             if stop_immediately:
                 break
 
-        # Advance state
         state = next_state
         chunk_reward_m1 += pi1_a + pi1_b
         chunk_reward_m2 += pi2_a + pi2_b
 
-        # Record chunks
         if (step + 1) % chunk_size == 0:
             joint_rewards_m1.append(chunk_reward_m1)
             joint_rewards_m2.append(chunk_reward_m2)
@@ -421,14 +393,12 @@ def train_dual_market_interleaved(
             chunk_reward_m1 = 0.0
             chunk_reward_m2 = 0.0
 
-        # Logging
         if verbose and (step + 1) % log_every == 0:
             print(
                 f"Step {step + 1:8d} | Unified: {unified_price:.4f} "
                 f"| M1 stable: {m1_stable_count:6d} | M2 stable: {m2_stable_count:6d}"
             )
 
-        # Stop if converged and not stopping immediately
         if converged and not stop_immediately:
             if step >= convergence_step + 100_000:
                 break
@@ -508,7 +478,6 @@ def run_undercut_experiment(
             "skip_reason": "no_valid_prices",
         }
 
-    # Get the relevant market's converged prices
     if market == 1:
         conv_price_a = pA_m1
         conv_price_b = pB_m1
@@ -548,9 +517,9 @@ def run_undercut_experiment(
     undercut_price = max(prices_below_a)
 
     state = converged_state
-    trajectory: List[Tuple[float, float]] = []  # (price_a, price_b) in the undercut market
+    trajectory: List[Tuple[float, float]] = []
 
-    # Step 1: A uses greedy, B undercuts in specified market
+    # Step 1: A greedy, B undercuts in specified market
     action_a = agent_a.greedy_action(state)
     greedy_b = agent_b.greedy_action(state)
 

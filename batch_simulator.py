@@ -1,29 +1,12 @@
 """
-Batch Simulator for Multi-Agent Q-Learning with Multiple Markets
+Batch Simulator for Multi-Agent Bertrand Q-Learning
 
-This script runs multiple simulations across different discount factors and collects
-convergence metrics for analysis. It supports running 2 independent markets, each
-with 2 agents (firms A and B).
-
-Configuration:
-- Price range: [0, 1] (normalized)
-- Production cost: 0 for both firms
-- For each discount factor in {0.05, 0.10, ..., 0.95, 1.0}, run simulations
-- Market 1 uses δ, Market 2 uses 0.7 × δ
-- Collect: converged price, converged Q-value, time to converge, if converged or not
-
-Extended for 2 markets:
-- Market 1: Firm 1A and Firm 1B
-- Market 2: Firm 2A and Firm 2B
-- Each market runs independently with the same environment configuration
-- Results include converged prices for all 4 agents (1A, 1B, 2A, 2B)
+Runs single or batch simulations across discount factors. Market 1 uses δ,
+Market 2 uses gamma_multiplier × δ. Both markets share the same two agents.
 
 Usage:
-    # Test mode: 10 simulations for discount factors [0.05, 0.5, 1.0]
-    python batch_simulator.py --mode test
-
-    # Full scale: 100,000 simulations for discount factors [0.05, 0.10, ..., 0.95, 1.0]
-    python batch_simulator.py --mode full
+    python batch_simulator.py --mode test   # 10 sims, δ ∈ {0.05, 0.5, 1.0}
+    python batch_simulator.py --mode full   # 100k sims, δ ∈ {0.05, ..., 0.95}
 """
 
 import argparse
@@ -37,10 +20,8 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-# Import configuration constants
 import config
 
-# Import from core module - no duplicate code!
 from core import (
     MarketConfig,
     BertrandMultiAgentEnvironment,
@@ -49,7 +30,6 @@ from core import (
     run_undercut_experiment,
 )
 
-# Global logger
 logger = logging.getLogger("batch_simulator")
 
 
@@ -139,7 +119,6 @@ def run_single_simulation(
         random.seed(seed)
         np.random.seed(seed)
 
-    # Start timer
     start_time = time.time()
 
     # Calculate price step from num_price_levels
@@ -165,7 +144,6 @@ def run_single_simulation(
     env1 = BertrandMultiAgentEnvironment(market_config)
     env2 = BertrandMultiAgentEnvironment(market_config)
 
-    # Create 2 agents with 4-tuple state and 2-tuple action
     # Use average discount factor for optimistic initialization
     avg_discount_factor = (discount_factor_m1 + discount_factor_m2) / 2
 
@@ -201,7 +179,6 @@ def run_single_simulation(
         log(f"Agents share Q-tables across both markets")
         log(f"{'='*70}")
 
-    # Run interleaved training with shared agents
     results = train_dual_market_interleaved(
         env1=env1,
         env2=env2,
@@ -217,7 +194,6 @@ def run_single_simulation(
         verbose=verbose,
     )
 
-    # End timer
     end_time = time.time()
     time_to_converge = end_time - start_time
 

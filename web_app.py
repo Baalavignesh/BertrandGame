@@ -25,7 +25,7 @@ from batch_simulator import run_single_simulation
 
 # Page configuration
 st.set_page_config(
-    page_title="Bertrand Q-Learning Simulator - New",
+    page_title="Bertrand Q-Learning Simulator",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",

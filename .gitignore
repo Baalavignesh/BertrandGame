@@ -1,12 +1,33 @@
-working
-old
-undercut.ipynb
-__pycache__
-visualize_results.py
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# Simulation outputs
+simulation_results_*.csv
+simulation_log_*.txt
+results_mult_*.csv
 plots/
+
+# Development / scratch files
+working/
+old/
+undercut.ipynb
+visualize_results.py
+
+# Internal docs (not for distribution)
 CLAUDE.md
-simulation_results_test.csv
 CONVERGENCE_ISSUES.md
 DUAL_MARKET_ARCHITECTURE.md
-MATLAB/
 ARCHITECTURE_CHANGES.md
+
+# Reference MATLAB implementation
+MATLAB/
+
+# Tooling
+.claude/
